@@ -11,7 +11,9 @@ from backend.core.visual_search import (
     generate_phrases,
     search_visual,
 )
-from backend.services.video_service import ensure_video_exists
+
+from backend.services.video_service import download_video
+
 
 def ensure_frame_embeddings(url: str):
     video_id = extract_video_id(url)
@@ -20,8 +22,10 @@ def ensure_frame_embeddings(url: str):
     embeddings_path = get_frame_embeddings_path(video_id)
 
     if not os.path.exists(embeddings_path):
+
         # Ensure video is downloaded first via video_service
-        video_status = ensure_video_exists(url)
+
+        video_status = download_video(url)
         if video_status.get("status") not in ["exists", "downloaded"]:
             raise RuntimeError(f"Failed to download video for embeddings: {video_status.get('error')}")
 

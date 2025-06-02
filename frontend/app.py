@@ -7,12 +7,11 @@ from openai import OpenAI
 from numpy.linalg import norm
 import sys
 
-# Add root to sys.path to access shared.utils
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from shared.utils import extract_video_id
 
-# === CONFIG ===
+# CONFIG 
 EMBED_MODEL = "text-embedding-3-small"
 GPT_MODEL = "gpt-3.5-turbo-1106"
 BACKEND_URL = "http://localhost:8000"
@@ -23,7 +22,7 @@ if not api_key:
     raise ValueError("OPENAI_API_KEY is not set.")
 client = OpenAI(api_key=api_key)
 
-# === Utility Functions ===
+# Utility Functions 
 def format_youtube_link(video_id, start_seconds):
     return f"https://www.youtube.com/watch?v={video_id}&t={int(start_seconds)}s"
 
@@ -55,24 +54,42 @@ def ask_gpt(question, context_sections):
         temperature=0.5
     )
     return response.choices[0].message.content.strip()
-
 @st.cache_data(show_spinner=False)
 def load_sections_with_embeddings(video_id):
-    path = f"data/{video_id}/summary.json"
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "backend", "videos", video_id, "section_summary.json"
+    )
+    path = os.path.abspath(path)
+    print(f"Looking for summary file at: {path}")
+
     if not os.path.exists(path):
+        print("Summary file not found.")
         return None
+
     with open(path, "r") as f:
         sections = json.load(f)
-    embeddings = [
-        get_embedding(sec["title"] + ": " + sec.get("text", ""))
-        for sec in sections
-    ]
+
+    print(f"Loaded {len(sections)} sections from summary file.")
+
+    embeddings = []
+    for sec in sections:
+        try:
+            emb = get_embedding(sec["title"] + ": " + sec.get("text", ""))
+            embeddings.append(emb)
+        except Exception as e:
+            print(f"Embedding generation failed for section {sec['title']}: {e}")
+            return None
+
+    print(f"Generated {len(embeddings)} embeddings.")
+
     return {
         "sections": sections,
         "embeddings": np.array(embeddings)
     }
 
-# === Streamlit UI ===
+
+
+# Streamlit UI 
 
 st.set_page_config(page_title="Multimodal Video Chat", layout="centered")
 st.title("🎬 Chat With a YouTube Video")
